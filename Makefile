@@ -21,4 +21,4 @@ list.exe: $(OBJ)
 .PHONY: clean all
 
 clean:
-	rm -rf *.o list.exe
+	del main.o list.o list.exe

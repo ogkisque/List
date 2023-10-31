@@ -33,6 +33,13 @@ Error list_insert (List* list, Elemt value, int pos, int* pos_real)
     *pos_real = list->free;
     list->free = new_next;
     list->num_elems++;
+
+    if (list->num_elems == list->size - 1)
+    {
+        error = list_realloc (list);
+        PARSE_ERROR(error);
+    }
+
     RETURN_ERROR(CORRECT, "");
 }
 
@@ -59,14 +66,23 @@ Error list_erase (List* list, int pos, int* pos_real)
     RETURN_ERROR(CORRECT, "");
 }
 
-void print_error (Error error)
+Error list_realloc (List* list)
 {
-    printf ("Error: %s\n"
-            "Code: %d\n"
-            "File: %s, function: %s, line: %d\n",
-            error.message,
-            error.code,
-            error.file, error.func, error.line);
+    Node* new_nodes = NULL;
+    new_nodes = (Node*) realloc (list->nodes, list->size * REALLOC_STEP * sizeof (Node));
+    if (!list->nodes)
+        RETURN_ERROR(MEM_ALLOC, "Error of reallocation memory of nodes.");
+
+    list->nodes = new_nodes;
+    list->size = list->size * REALLOC_STEP;
+    for (int i = list->size / REALLOC_STEP; i < list->size; i++)
+    {
+        list->nodes[i].prev = -1;
+        list->nodes[i].next = i + 1;
+        list->nodes[i].value = 0;
+    }
+
+    RETURN_ERROR(CORRECT, "");
 }
 
 Iterator prev_it (Iterator it)
@@ -87,6 +103,33 @@ Iterator begin_it (List* list)
 Iterator end_it (List* list)
 {
     return Iterator {list->nodes[0].prev, list};
+}
+
+Error get_value (Iterator* it, Elemt* value)
+{
+    if (it->index <= 0 || it->index >= it->list->size || it->list->nodes[it->index].prev == -1)
+        RETURN_ERROR(INCOR_POS, "Incorrect index.");
+
+    if (!value)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of value.");
+
+    if (!it)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of iterator.");
+
+    *value = it->list->nodes[it->index].value;
+    RETURN_ERROR(CORRECT, "");
+}
+
+Error set_value (Iterator* it, Elemt value)
+{
+    if (it->index <= 0 || it->index >= it->list->size || it->list->nodes[it->index].prev == -1)
+        RETURN_ERROR(INCOR_POS, "Incorrect index.");
+
+    if (!it)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of iterator.");
+
+    it->list->nodes[it->index].value = value;
+    RETURN_ERROR(CORRECT, "");
 }
 
 Error list_push_begin (List* list, Elemt value, int* pos_real)
@@ -129,15 +172,15 @@ Error list_ctor (List* list, const char* name, const char* file, const char* fun
         list->nodes[i].prev = -1;
     }
 
-    list->nodes[0].value = INT_MAX;
-    list->nodes[0].next = 1;
-    list->nodes[0].prev = 0;
-    list->free = 1;
-    list->num_elems = 0;
-    list->name = name;
-    list->file = file;
-    list->func = func;
-    list->line = line;
+    list->nodes[0].value =  INT_MAX;
+    list->nodes[0].next =   0;
+    list->nodes[0].prev =   0;
+    list->free =            1;
+    list->num_elems =       0;
+    list->name =            name;
+    list->file =            file;
+    list->func =            func;
+    list->line =            line;
     RETURN_ERROR(CORRECT, "");
 }
 
@@ -146,10 +189,11 @@ Error list_dtor (List* list)
     if (!list)
         RETURN_ERROR(NULL_POINTER, "Null pointer of list.");
 
-    list->size = -1;
     free (list->nodes);
-    list->nodes = NULL;
-    list->free = -1;
+    list->nodes =       NULL;
+    list->size =        -1;
+    list->free =        -1;
+    list->num_elems =   -1;
     RETURN_ERROR(CORRECT, "");
 }
 
@@ -166,10 +210,13 @@ void list_dump (List* list, Error error)
 {
     printf (RED_COL);
     printf ("-------------------------------------\n");
-    printf ("Error in list: %s\n"
-            "Called from file: %s, func: %s, line: %d\n",
-            list->name, list->file, list->func, list->line);
-    print_error (error);
+    if (error.code != CORRECT)
+    {
+        printf ("Error in list: %s\n"
+                "Called from file: %s, func: %s, line: %d\n",
+                list->name, list->file, list->func, list->line);
+        print_error (error);
+    }
     printf ("Size - %d\n", list->size);
     printf (YELLOW_COL);
     printf ("Data:\n");
@@ -190,4 +237,14 @@ void list_dump (List* list, Error error)
     printf ("Free = %d\n", list->free);
     printf ("-------------------------------------\n");
     printf (OFF_COL);
+}
+
+void print_error (Error error)
+{
+    printf ("Error: %s\n"
+            "Code: %d\n"
+            "File: %s, function: %s, line: %d\n",
+            error.message,
+            error.code,
+            error.file, error.func, error.line);
 }

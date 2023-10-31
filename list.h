@@ -13,7 +13,7 @@ typedef int Elemt;
         list_ctor (list, #list, __FILE__, __func__, __LINE__)
 
 const int REALLOC_STEP = 2;
-const int START_SIZE   = 10;
+const int START_SIZE   = 8;
 const int NAME_SIZE    = 50;
 
 enum Error_codes
@@ -60,21 +60,24 @@ struct Error
     const char* message;
 };
 
-Iterator prev_it (Iterator it);
-Iterator next_it (Iterator it);
-Iterator begin_it (List* list);
-Iterator end_it (List* list);
-Error list_insert (List* list, int value, int pos, int* pos_real);
-Error list_erase (List* list, int pos, int* pos_real);
-Error list_push_begin (List* list, Elemt value, int* pos_real);
-Error list_push_end (List* list, Elemt value, int* pos_real);
-Error list_pop_begin (List* list, int* pos_real);
-Error list_pop_end (List* list, int* pos_real);
+Iterator    prev_it         (Iterator it);
+Iterator    next_it         (Iterator it);
+Iterator    begin_it        (List* list);
+Iterator    end_it          (List* list);
+Error       get_value       (Iterator* it, Elemt* value);
+Error       set_value       (Iterator* it, Elemt value);
+Error       list_push_begin (List* list, Elemt value, int* pos_real);
+Error       list_push_end   (List* list, Elemt value, int* pos_real);
+Error       list_pop_begin  (List* list, int* pos_real);
+Error       list_pop_end    (List* list, int* pos_real);
+Error       list_insert     (List* list, int value, int pos, int* pos_real);
+Error       list_erase      (List* list, int pos, int* pos_real);
 
-void print_error (Error error);
-Error list_ctor (List* list, const char* name, const char* file, const char* func, int line);
-Error list_dtor (List* list);
-Error list_verify (List* list);
-void list_dump (List* list, Error error);
+Error   list_realloc (List* list);
+Error   list_ctor   (List* list, const char* name, const char* file, const char* func, int line);
+Error   list_dtor   (List* list);
+Error   list_verify (List* list);
+void    list_dump   (List* list, Error error);
+void    print_error (Error error);
 
 #endif //LIST_HEADER
