@@ -7,6 +7,8 @@
 #include <string.h>
 #include "colors.h"
 
+typedef int Elemt;
+
 #define LIST_CTOR(list) \
         list_ctor (list, #list, __FILE__, __func__, __LINE__)
 
@@ -20,22 +22,33 @@ enum Error_codes
     NULL_POINTER =      1,
     MEM_ALLOC =         2,
     INCOR_POS =         3,
-    INCOR_ZERO_ELEM =   4
+    INCOR_ZERO_ELEM =   4,
+    INCOR_LAST_ELEM =   5
+};
+
+struct Node
+{
+    Elemt value;
+    int next;
+    int prev;
 };
 
 struct List
 {
-    int* data;
-    int* next;
-    int* prev;
-    int head;
-    int tail;
+    Node* nodes;
     int free;
     int size;
+    int num_elems;
     const char* name;
     const char* file;
     const char* func;
     int line;
+};
+
+struct Iterator
+{
+    int index;
+    List* list;
 };
 
 struct Error
@@ -47,8 +60,17 @@ struct Error
     const char* message;
 };
 
+Iterator prev_it (Iterator it);
+Iterator next_it (Iterator it);
+Iterator begin_it (List* list);
+Iterator end_it (List* list);
 Error list_insert (List* list, int value, int pos, int* pos_real);
-Error print_real_list (List* list);
+Error list_erase (List* list, int pos, int* pos_real);
+Error list_push_begin (List* list, Elemt value, int* pos_real);
+Error list_push_end (List* list, Elemt value, int* pos_real);
+Error list_pop_begin (List* list, int* pos_real);
+Error list_pop_end (List* list, int* pos_real);
+
 void print_error (Error error);
 Error list_ctor (List* list, const char* name, const char* file, const char* func, int line);
 Error list_dtor (List* list);
