@@ -1,19 +1,24 @@
 #include "list.h"
+#include "Dotter.h"
+
+const char* NAME_DOT        = "pic.dot";
+const int   MAX_TEXT_SIZE   = 200;
 
 #define RETURN_ERROR(code, message) \
         return Error {code, __LINE__, __FILE__, __func__, message}
 
-#define PARSE_ERROR(error)          \
-        if (error.code != CORRECT)  \
-        {                           \
-            print_error (error);    \
-            return error;           \
+#define PARSE_ERROR(list, error)            \
+        if (error.code != CORRECT)          \
+        {                                   \
+            list_dump (list, error);        \
+            list_graph_dump (list, error);  \
+            return error;                   \
         }
 
 Error list_insert (List* list, Elemt value, int pos, int* pos_real)
 {
     Error error = list_verify (list);
-    PARSE_ERROR(error);
+    PARSE_ERROR(list, error);
 
     if (!pos_real)
         RETURN_ERROR(NULL_POINTER, "Null pointer of pos_real.");
@@ -37,7 +42,7 @@ Error list_insert (List* list, Elemt value, int pos, int* pos_real)
     if (list->num_elems == list->size - 1)
     {
         error = list_realloc (list);
-        PARSE_ERROR(error);
+        PARSE_ERROR(list, error);
     }
 
     RETURN_ERROR(CORRECT, "");
@@ -46,7 +51,7 @@ Error list_insert (List* list, Elemt value, int pos, int* pos_real)
 Error list_erase (List* list, int pos, int* pos_real)
 {
     Error error = list_verify (list);
-    PARSE_ERROR(error);
+    PARSE_ERROR(list, error);
 
     if (!pos_real)
         RETURN_ERROR(NULL_POINTER, "Null pointer of pos_real.");
@@ -134,9 +139,6 @@ Error set_value (Iterator* it, Elemt value)
 
 Error list_push_begin (List* list, Elemt value, int* pos_real)
 {
-    if (list->num_elems == 0)
-        return list_insert (list, value, 0, pos_real);
-
     return list_insert (list, value, list->nodes[0].next, pos_real);
 }
 
@@ -247,4 +249,80 @@ void print_error (Error error)
             error.message,
             error.code,
             error.file, error.func, error.line);
+}
+
+void list_graph_dump (List* list, Error error)
+{
+    dtBegin (NAME_DOT);
+    dump_nodes (list);
+    dump_links (list);
+    if (error.code != CORRECT)
+        dump_error (list, error);
+    dtEnd ();
+    dtRender (NAME_DOT);
+}
+
+void dump_nodes (List* list)
+{
+    char text[MAX_TEXT_SIZE] = "";
+    dtNodeStyle ().shape        ("box")
+                  .style        ("rounded, filled")
+                  .fontcolor    ("black");
+
+    for (int i = 0; i < list->size; i++)
+    {
+        sprintf (text, "Index: [%d]\n"
+                       "Value: %d\n"
+                       "Prev:  [%d]\n"
+                       "Next:  [%d]\n",
+                       i, list->nodes[i].value, list->nodes[i].prev, list->nodes[i].next);
+        if (list->nodes[i].prev == -1)
+            dtNodeStyle ().fillcolor ("#FFA07A");
+        else if (i == 0)
+            dtNodeStyle ().fillcolor ("#FFD700");
+        else
+            dtNodeStyle ().fillcolor ("#90EE90");
+
+        dtNode (i, text);
+    }
+}
+
+void dump_links (List* list)
+{
+    dtLinkStyle ().style ("bold")
+                  .color ("#4682B4");
+    for (int i = 0; i < list->size; i++)
+    {
+        dtLink (i, list->nodes[i].next, "");
+    }
+
+    dtLinkStyle ().style ("dashed")
+                  .color ("#00FFFF");
+    for (int i = 0; i < list->size; i++)
+    {
+        if (list->nodes[i].prev != -1)
+        {
+            dtLink (i, list->nodes[i].prev, "");
+        }
+    }
+}
+
+void dump_error (List* list, Error error)
+{
+    char text[MAX_TEXT_SIZE] = "";
+    dtNodeStyle ().shape        ("box")
+                  .style        ("rounded, filled")
+                  .fontcolor    ("black")
+                  .fillcolor    ("#FFFF00");
+
+    sprintf (text,
+            "Error in list: %s\n"
+            "Called from file: %s, func: %s, line: %d\n"
+            "Error: %s\n"
+            "Code: %d\n"
+            "File: %s, function: %s, line: %d\n",
+            list->name, list->file, list->func, list->line,
+            error.message, error.code, error.file, error.func, error.line);
+
+    dtNode (list->size + 1, text);
 }

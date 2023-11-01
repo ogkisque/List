@@ -34,11 +34,12 @@ int main ()
     list_push_end (&list, 3,  &pos_elem1);
     list_push_end (&list, 4,  &pos_elem1);
     list_push_end (&list, 5,  &pos_elem1);
-    list_push_end (&list, 6,  &pos_elem1);
+    Error error = list_push_end (&list, 6,  NULL);
     for (Iterator it = begin_it (&list); it.index != 0; it = next_it (it))
         printf ("%d ", ((it.list)->nodes)[it.index].value);
     printf ("\n");
 
+    list_graph_dump (&list, error);
     list_dtor (&list);
     return 0;
 }
