@@ -170,6 +170,22 @@ Error list_realloc_decrease (List* list)
     RETURN_ERROR(CORRECT, "");
 }
 
+Iterator search_value (List* list, Elemt value)
+{
+    Iterator ans = {-1, list};
+    for (Iterator it = begin_it (list); it.index != 0; it = next_it (it))
+    {
+        Elemt val = 0;
+        get_value (&it, &val);
+        if (val == value)
+        {
+            ans = it;
+            break;
+        }
+    }
+    return ans;
+}
+
 Iterator prev_it (Iterator it)
 {
     return Iterator {((it.list)->nodes)[it.index].prev, it.list};

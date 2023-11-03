@@ -26,6 +26,9 @@ int main ()
         list_push_end (list, i, &pos_elem);
     print_list (list);
 
+    Iterator iter = search_value (list, 55);
+    printf ("%d\n", iter.index);
+
     for (int i = 0; i < 10; i++)
         list_pop_begin (list, &pos_elem);
     print_list (list);

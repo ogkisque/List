@@ -43,6 +43,7 @@ struct Error
     const char* message;
 };
 
+Iterator    search_value    (List* list, Elemt value);
 Iterator    prev_it         (Iterator it);
 Iterator    next_it         (Iterator it);
 Iterator    begin_it        (List* list);
