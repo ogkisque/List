@@ -22,31 +22,47 @@
 const char* NAME_DOT        = "pic.dot";
 const int   MAX_TEXT_SIZE   = 200;
 const int   REALLOC_STEP    = 2;
-const int   START_SIZE      = 8;
 const int   NAME_SIZE       = 50;
+const int   NUM_FOOTS       = 20;
+const int   SIZE_NAME_FOOT  = 20;
+
+#ifdef FOOTBALL_CHECK
+struct Football
+{
+    char name[SIZE_NAME_FOOT];
+    int goals;
+};
+#endif
 
 struct Node
 {
     Elemt value;
-    int next;
-    int prev;
+    ssize_t next;
+    ssize_t prev;
 };
 
 struct List
 {
-    Node* nodes;
-    int free;
-    int size;
-    int num_elems;
+    Node*       nodes;
+    ssize_t     free;
+    int         size;
+    int         num_elems;
+    bool        is_realloc_inc;
+    bool        is_realloc_dec;
     const char* name;
     const char* file;
     const char* func;
-    int line;
+    int         line;
+
+#ifdef FOOTBALL_CHECK
+    Football    foots[NUM_FOOTS];
+#endif
 };
 
 Error   list_realloc_increase   (List* list);
 Error   list_realloc_decrease   (List* list);
 Error   list_verify             (List* list);
+void    fill_nodes              (List* list, ssize_t start, ssize_t end);
 void    list_dump               (List* list, Error error);
 void    print_error             (Error error);
 void    list_graph_dump         (List* list, Error error);
@@ -56,18 +72,18 @@ void    dump_error              (List* list, Error error);
 bool    prev_of_next            (List* list);
 bool    is_cycles               (List* list);
 
-Error list_insert (List* list, Elemt value, int pos, int* pos_real)
+Error list_insert (List* list, Elemt value, ssize_t pos, Iterator* it)
 {
     Error error = list_verify (list);
     PARSE_ERROR(list, error);
 
-    if (!pos_real)
-        RETURN_ERROR_AND_DUMP(list, NULL_POINTER, "Null pointer of pos_real.");
+    if (!it)
+        RETURN_ERROR_AND_DUMP(list, NULL_POINTER, "Null pointer of iterator.");
 
     if (pos < 0 || pos > list->size - 1 || ((list->nodes[pos].prev == -1) && pos != 0))
         RETURN_ERROR_AND_DUMP(list, INCOR_POS, "Incorrect position.");
 
-    int new_next = (list->nodes)[list->free].next;
+    ssize_t new_next = (list->nodes)[list->free].next;
 
     list->nodes[list->free].value = value;
 
@@ -76,31 +92,40 @@ Error list_insert (List* list, Elemt value, int pos, int* pos_real)
     list->nodes[list->nodes[pos].prev].next = list->free;
     list->nodes[pos].prev = list->free;
 
-    *pos_real = list->free;
+    it->index = list->free;
+    it->list  = list;
     list->free = new_next;
     list->num_elems++;
 
     if (list->num_elems == list->size - 1)
     {
-        error = list_realloc_increase (list);
-        PARSE_ERROR(list, error);
+        if (list->is_realloc_inc)
+        {
+            error = list_realloc_increase (list);
+            PARSE_ERROR(list, error);
+        }
+        else
+        {
+            RETURN_ERROR(LIST_OVERFLOW, "There are no free elements in list.");
+        }
     }
 
     RETURN_ERROR(CORRECT, "");
 }
 
-Error list_erase (List* list, int pos, int* pos_real)
+Error list_erase (List* list, ssize_t pos, Iterator* it)
 {
     Error error = list_verify (list);
     PARSE_ERROR(list, error);
 
-    if (!pos_real)
-        RETURN_ERROR_AND_DUMP(list, NULL_POINTER, "Null pointer of pos_real.");
+    if (!it)
+        RETURN_ERROR_AND_DUMP(list, NULL_POINTER, "Null pointer of iterator.");
 
     if (pos <= 0 || list->nodes[pos].prev == -1 || pos >= list->size)
         RETURN_ERROR_AND_DUMP(list, INCOR_POS, "Incorrect position.");
 
-    *pos_real = list->nodes[pos].next;
+    it->index = list->nodes[pos].next;
+    it->list  = list;
     list->nodes[pos].value = 0;
     list->nodes[list->nodes[pos].prev].next = list->nodes[pos].next;
     list->nodes[list->nodes[pos].next].prev = list->nodes[pos].prev;
@@ -110,7 +135,7 @@ Error list_erase (List* list, int pos, int* pos_real)
     list->free = pos;
     list->num_elems--;
 
-    if (list->num_elems < list->size / REALLOC_STEP / REALLOC_STEP)
+    if ((list->is_realloc_dec) && (list->num_elems < list->size / REALLOC_STEP / REALLOC_STEP))
     {
         error = list_realloc_decrease (list);
         PARSE_ERROR(list, error);
@@ -127,12 +152,8 @@ Error list_realloc_increase (List* list)
 
     list->nodes = new_nodes;
     list->size = list->size * REALLOC_STEP;
-    for (int i = list->size / REALLOC_STEP; i < list->size; i++)
-    {
-        list->nodes[i].prev = -1;
-        list->nodes[i].next = i + 1;
-        list->nodes[i].value = 0;
-    }
+
+    fill_nodes (list, list->size / REALLOC_STEP, list->size);
 
     RETURN_ERROR(CORRECT, "");
 }
@@ -147,7 +168,7 @@ Error list_realloc_decrease (List* list)
     list->size =  list->size / REALLOC_STEP;
     list->nodes = (Node*) realloc (list->nodes, list->size * sizeof (Node));
     int num = 0;
-    for (int i = old_list->nodes[0].next; i != 0; i = old_list->nodes[i].next)
+    for (ssize_t i = old_list->nodes[0].next; i != 0; i = old_list->nodes[i].next)
     {
         num++;
         list->nodes[num].value =    old_list->nodes[i].value;
@@ -160,11 +181,7 @@ Error list_realloc_decrease (List* list)
     list->nodes[0].prev   = num;
     list->free            = num + 1;
 
-    for (int i = num + 1; i < list->size; i++)
-    {
-        list->nodes[i].next = i + 1;
-        list->nodes[i].prev = -1;
-    }
+    fill_nodes (list, num + 1, list->size);
 
     free (old_list);
     RETURN_ERROR(CORRECT, "");
@@ -173,16 +190,19 @@ Error list_realloc_decrease (List* list)
 Iterator search_value (List* list, Elemt value)
 {
     Iterator ans = {-1, list};
-    for (Iterator it = begin_it (list); it.index != 0; it = next_it (it))
+    for (Iterator it1 = begin_it (list), it2 = end_it (list);
+        it1.index != it2.index;
+        it1 = next_it (it1))
     {
         Elemt val = 0;
-        get_value (&it, &val);
+        get_value (&it1, &val);
         if (val == value)
         {
-            ans = it;
+            ans = it1;
             break;
         }
     }
+
     return ans;
 }
 
@@ -203,7 +223,7 @@ Iterator begin_it (List* list)
 
 Iterator end_it (List* list)
 {
-    return Iterator {list->nodes[0].prev, list};
+    return Iterator {0, list};
 }
 
 Error get_value (Iterator* it, Elemt* value)
@@ -233,35 +253,35 @@ Error set_value (Iterator* it, Elemt value)
     RETURN_ERROR(CORRECT, "");
 }
 
-Error list_push_begin (List* list, Elemt value, int* pos_real)
+Error list_push_begin (List* list, Elemt value, Iterator* it)
 {
     if (!list)
         RETURN_ERROR(NULL_POINTER, "Null pointer of list.");
-    return list_insert (list, value, list->nodes[0].next, pos_real);
+    return list_insert (list, value, list->nodes[0].next, it);
 }
 
-Error list_push_end (List* list, Elemt value, int* pos_real)
+Error list_push_end (List* list, Elemt value, Iterator* it)
 {
     if (!list)
         RETURN_ERROR(NULL_POINTER, "Null pointer of list.");
-    return list_insert (list, value, 0, pos_real);
+    return list_insert (list, value, 0, it);
 }
 
-Error list_pop_begin (List* list, int* pos_real)
+Error list_pop_begin (List* list, Iterator* it)
 {
     if (!list)
         RETURN_ERROR(NULL_POINTER, "Null pointer of list.");
-    return list_erase (list, list->nodes[0].next, pos_real);
+    return list_erase (list, list->nodes[0].next, it);
 }
 
-Error list_pop_end (List* list, int* pos_real)
+Error list_pop_end (List* list, Iterator* it)
 {
     if (!list)
         RETURN_ERROR(NULL_POINTER, "Null pointer of list.");
-    return list_erase (list, list->nodes[0].prev, pos_real);
+    return list_erase (list, list->nodes[0].prev, it);
 }
 
-Error make_list (List** list, const char* name, const char* file, const char* func, int line)
+Error make_list (List** list, int start_size, bool need_realloc_inc, bool need_realloc_dec, const char* name, const char* file, const char* func, int line)
 {
     if (!list)
         RETURN_ERROR(NULL_POINTER, "Null pointer of pointer of list.");
@@ -271,26 +291,24 @@ Error make_list (List** list, const char* name, const char* file, const char* fu
     if (!list)
         RETURN_ERROR(MEM_ALLOC, "Error of allocation memory of list.");
 
-    Error error = list_ctor (*list, name, file, func, line);
+    Error error = list_ctor (*list, start_size, need_realloc_inc, need_realloc_dec, name, file, func, line);
     return error;
 }
 
-Error list_ctor (List* list, const char* name, const char* file, const char* func, int line)
+Error list_ctor (List* list, int start_size, bool need_realloc_inc, bool need_realloc_dec, const char* name, const char* file, const char* func, int line)
 {
     if (!list)
         RETURN_ERROR(NULL_POINTER, "Null pointer of list.");
 
-    list->size = START_SIZE;
+    list->size = start_size;
+    list->is_realloc_inc = need_realloc_inc;
+    list->is_realloc_dec = need_realloc_dec;
     list->nodes = (Node*) calloc (list->size, sizeof (Node));
 
     if (!(list->nodes))
         RETURN_ERROR(MEM_ALLOC, "Failed memory allocation of nodes");
 
-    for (int i = 1; i < list->size; i++)
-    {
-        list->nodes[i].next = i + 1;
-        list->nodes[i].prev = -1;
-    }
+    fill_nodes (list, 1, list->size);
 
     list->nodes[0].value =  INT_MAX;
     list->nodes[0].next =   0;
@@ -301,6 +319,29 @@ Error list_ctor (List* list, const char* name, const char* file, const char* fun
     list->file =            file;
     list->func =            func;
     list->line =            line;
+
+#ifdef FOOTBALL_CHECK
+    list->foots = {{"Haaland",      36},
+                   {"Mbappe",       29},
+                   {"Kane",         30},
+                   {"Lacazette",    27},
+                   {"Messi",        16},
+                   {"Griezmann",    15},
+                   {"Osimhen",      26},
+                   {"Salah",        19},
+                   {"Lewandowski",  23},
+                   {"Taremi",       22},
+                   {"Muani",        15},
+                   {"David",        24},
+                   {"Martinez",     21},
+                   {"Goncalves",    15},
+                   {"Ramos",        19},
+                   {"Mario",        17},
+                   {"Openda",       21},
+                   {"Wahi",         19},
+                   {"Ben Yedder",   19},
+                   {"Leao",         15}};
+#endif
     RETURN_ERROR(CORRECT, "");
 }
 
@@ -330,7 +371,7 @@ Error list_verify (List* list)
 
 bool prev_of_next (List* list)
 {
-    for (int i = 0; i < list->size; i++)
+    for (ssize_t i = 0; i < list->size; i++)
         if (list->nodes[i].prev != -1)
             if (list->nodes[list->nodes[i].next].prev != i)
                 return true;
@@ -340,7 +381,7 @@ bool prev_of_next (List* list)
 bool is_cycles (List* list)
 {
     int kol = 0;
-    for (int i = list->nodes[0].next; i != 0; i = list->nodes[i].next)
+    for (ssize_t i = list->nodes[0].next; i != 0; i = list->nodes[i].next)
         kol++;
     return kol != list->num_elems;
 }
@@ -367,15 +408,15 @@ void list_dump (List* list, Error error)
     printf (BLUE_COL);
     printf ("Next:\n");
     for (int i = 0; i < list->size; i++)
-        printf ("%d [%d] ", list->nodes[i].next, i);
+        printf ("%lld [%d] ", list->nodes[i].next, i);
     printf ("\n");
     printf (GREEN_COL);
     printf ("Prev:\n");
     for (int i = 0; i < list->size; i++)
-        printf ("%d [%d] ", list->nodes[i].prev, i);
+        printf ("%lld [%d] ", list->nodes[i].prev, i);
     printf ("\n");
     printf (RED_COL);
-    printf ("Free = %d\n", list->free);
+    printf ("Free = %lld\n", list->free);
     printf ("-------------------------------------\n");
     printf (OFF_COL);
 }
@@ -408,12 +449,12 @@ void dump_nodes (List* list)
                   .style        ("rounded, filled")
                   .fontcolor    ("black");
 
-    for (int i = 0; i < list->size; i++)
+    for (ssize_t i = 0; i < list->size; i++)
     {
-        sprintf (text, "Index: [%d]\n"
+        sprintf (text, "Index: [%lld]\n"
                        "Value: %d\n"
-                       "Prev:  [%d]\n"
-                       "Next:  [%d]\n",
+                       "Prev:  [%lld]\n"
+                       "Next:  [%lld]\n",
                        i, list->nodes[i].value, list->nodes[i].prev, list->nodes[i].next);
         if (list->nodes[i].prev == -1)
             dtNodeStyle ().fillcolor ("#FFA07A");
@@ -422,7 +463,7 @@ void dump_nodes (List* list)
         else
             dtNodeStyle ().fillcolor ("#90EE90");
 
-        dtNode (i, text);
+        dtNode ((int) i, text);
     }
 }
 
@@ -430,18 +471,19 @@ void dump_links (List* list)
 {
     dtLinkStyle ().style ("bold")
                   .color ("#4682B4");
-    for (int i = 0; i < list->size; i++)
+    for (ssize_t i = 0; i < list->size; i++)
     {
-        dtLink (i, list->nodes[i].next, "");
+        if (list->nodes[i].next < list->size)
+            dtLink ((int) i, (int) list->nodes[i].next, "");
     }
 
     dtLinkStyle ().style ("dashed")
                   .color ("#00FFFF");
-    for (int i = 0; i < list->size; i++)
+    for (ssize_t i = 0; i < list->size; i++)
     {
         if (list->nodes[i].prev != -1)
         {
-            dtLink (i, list->nodes[i].prev, "");
+            dtLink ((int) i, (int) list->nodes[i].prev, "");
         }
     }
 }
@@ -464,4 +506,14 @@ void dump_error (List* list, Error error)
             error.message, error.code, error.file, error.func, error.line);
 
     dtNode (list->size + 1, text);
+}
+
+void fill_nodes (List* list, ssize_t start, ssize_t end)
+{
+    for (ssize_t i = start; i < end; i++)
+    {
+        list->nodes[i].next =  i + 1;
+        list->nodes[i].prev =  -1;
+        list->nodes[i].value = 0;
+    }
 }
