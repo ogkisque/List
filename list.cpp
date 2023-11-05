@@ -55,7 +55,9 @@ struct List
     int         line;
 
 #ifdef FOOTBALL_CHECK
-    Football    foots[NUM_FOOTS];
+    Football*   foots;
+    Football    foots_used[NUM_FOOTS];
+    int         num_foots_used        = 0;
 #endif
 };
 
@@ -71,6 +73,11 @@ void    dump_links              (List* list);
 void    dump_error              (List* list, Error error);
 bool    prev_of_next            (List* list);
 bool    is_cycles               (List* list);
+#ifdef FOOTBALL_CHECK
+bool    football_check          (List* list, const char* name, int goals);
+bool    is_foot_used            (List* list, const char* name);
+#endif
+
 
 Error list_insert (List* list, Elemt value, ssize_t pos, Iterator* it)
 {
@@ -187,8 +194,11 @@ Error list_realloc_decrease (List* list)
     RETURN_ERROR(CORRECT, "");
 }
 
-Iterator search_value (List* list, Elemt value)
+Iterator search_value (List* list, Elemt value, char* name, int goals)
 {
+    if (!football_check (list, name, goals))
+        return Iterator {-1, NULL};
+
     Iterator ans = {-1, list};
     for (Iterator it1 = begin_it (list), it2 = end_it (list);
         it1.index != it2.index;
@@ -320,28 +330,28 @@ Error list_ctor (List* list, int start_size, bool need_realloc_inc, bool need_re
     list->func =            func;
     list->line =            line;
 
-#ifdef FOOTBALL_CHECK
-    list->foots = {{"Haaland",      36},
-                   {"Mbappe",       29},
-                   {"Kane",         30},
-                   {"Lacazette",    27},
-                   {"Messi",        16},
-                   {"Griezmann",    15},
-                   {"Osimhen",      26},
-                   {"Salah",        19},
-                   {"Lewandowski",  23},
-                   {"Taremi",       22},
-                   {"Muani",        15},
-                   {"David",        24},
-                   {"Martinez",     21},
-                   {"Goncalves",    15},
-                   {"Ramos",        19},
-                   {"Mario",        17},
-                   {"Openda",       21},
-                   {"Wahi",         19},
-                   {"Ben Yedder",   19},
-                   {"Leao",         15}};
-#endif
+    static Football footballers[NUM_FOOTS] =    {Football {"Haaland",      36},
+                                                Football {"Mbappe",       29},
+                                                Football {"Kane",         30},
+                                                Football {"Lacazette",    27},
+                                                Football {"Messi",        16},
+                                                Football {"Griezmann",    15},
+                                                Football {"Osimhen",      26},
+                                                Football {"Salah",        19},
+                                                Football {"Lewandowski",  23},
+                                                Football {"Taremi",       22},
+                                                Football {"Muani",        15},
+                                                Football {"David",        24},
+                                                Football {"Martinez",     21},
+                                                Football {"Goncalves",    15},
+                                                Football {"Ramos",        19},
+                                                Football {"Mario",        17},
+                                                Football {"Openda",       21},
+                                                Football {"Wahi",         19},
+                                                Football {"Ben Yedder",   19},
+                                                Football {"Leao",         15}};
+    list->foots = footballers;
+
     RETURN_ERROR(CORRECT, "");
 }
 
@@ -517,3 +527,30 @@ void fill_nodes (List* list, ssize_t start, ssize_t end)
         list->nodes[i].value = 0;
     }
 }
+
+#ifdef FOOTBALL_CHECK
+bool football_check (List* list, const char* name, int goals)
+{
+    if (is_foot_used (list, name))
+        return false;
+
+    for (int i = 0; i < NUM_FOOTS; i++)
+    {
+        if (strcmp (name, list->foots[i].name) == 0 && goals == list->foots[i].goals)
+        {
+            list->foots_used[list->num_foots_used] = list->foots[i];
+            list->num_foots_used++;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool is_foot_used (List* list, const char* name)
+{
+    for (int i = 0; i < list->num_foots_used; i++)
+        if (strcmp (name, list->foots_used[i].name) == 0)
+            return true;
+    return false;
+}
+#endif

@@ -8,7 +8,7 @@
 
 #include "colors.h"
 
-//#define FOOTBALL_CHECK
+#define FOOTBALL_CHECK
 
 typedef int Elemt;
 
@@ -46,7 +46,7 @@ struct Error
     const char* message;
 };
 
-Iterator    search_value    (List* list, Elemt value);
+Iterator    search_value    (List* list, Elemt value, char* name, int goals);
 Iterator    prev_it         (Iterator it);
 Iterator    next_it         (Iterator it);
 Iterator    begin_it        (List* list);

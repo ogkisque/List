@@ -27,7 +27,9 @@ int main ()
         list_push_end (list, i, &ret_it);
     print_list (list);
 
-    Iterator iter = search_value (list, 55);
+    Iterator iter = search_value (list, 55, "Messi", 16);
+    printf ("%lld\n", iter.index);
+    iter = search_value (list, 55, "Messi", 16);
     printf ("%lld\n", iter.index);
 
     for (int i = 0; i < 10; i++)
